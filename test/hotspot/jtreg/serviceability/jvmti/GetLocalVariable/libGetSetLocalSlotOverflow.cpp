@@ -29,51 +29,43 @@
 extern "C" {
 #endif
 
-#define STATUS_PASSED 0
-#define STATUS_FAILED 2
-
 // The runner() frame at depth 1; INT_MAX makes (slot + extra_slot) overflow
 // for the long/double accessors.
 static const jint Depth = 1;
 static const jint OverflowSlot = INT_MAX; // 0x7fffffff
 
-static jint result = STATUS_PASSED;
 static jvmtiEnv *jvmti = nullptr;
 
 // Each access below MUST come back as JVMTI_ERROR_INVALID_SLOT. On an unfixed
 // VM the overflowing bounds check is bypassed and the subsequent
 // locals->at(INT_MAX) access crashes the VM before we ever see a return code.
-static void expect_invalid_slot(const char* what, jvmtiError err) {
+static bool expect_invalid_slot(const char* what, jvmtiError err) {
   if (err == JVMTI_ERROR_INVALID_SLOT) {
     printf(" PASS: %s returned JVMTI_ERROR_INVALID_SLOT (%d) for slot=INT_MAX\n", what, err);
-  } else {
-    printf(" FAIL: %s returned %d for slot=INT_MAX, expected JVMTI_ERROR_INVALID_SLOT (%d)\n",
-           what, err, JVMTI_ERROR_INVALID_SLOT);
-    result = STATUS_FAILED;
+    return true;
   }
+  printf(" FAIL: %s returned %d for slot=INT_MAX, expected JVMTI_ERROR_INVALID_SLOT (%d)\n",
+         what, err, JVMTI_ERROR_INVALID_SLOT);
+  return false;
 }
 
-JNIEXPORT void JNICALL
+JNIEXPORT jboolean JNICALL
 Java_GetSetLocalSlotOverflow_testOverflow(JNIEnv *env, jclass cls, jobject thread) {
   if (jvmti == nullptr) {
     printf("JVMTI client was not properly loaded!\n");
-    result = STATUS_FAILED;
-    return;
+    return JNI_FALSE;
   }
 
   jlong   lval = 0;
   jdouble dval = 0;
 
   // T_LONG / T_DOUBLE => extra_slot == 1 => INT_MAX + 1 overflows to INT_MIN.
-  expect_invalid_slot("GetLocalLong",   jvmti->GetLocalLong(thread, Depth, OverflowSlot, &lval));
-  expect_invalid_slot("GetLocalDouble", jvmti->GetLocalDouble(thread, Depth, OverflowSlot, &dval));
-  expect_invalid_slot("SetLocalLong",   jvmti->SetLocalLong(thread, Depth, OverflowSlot, (jlong)0));
-  expect_invalid_slot("SetLocalDouble", jvmti->SetLocalDouble(thread, Depth, OverflowSlot, (jdouble)0));
-}
-
-JNIEXPORT jint JNICALL
-Java_GetSetLocalSlotOverflow_getStatus(JNIEnv *env, jclass cls) {
-  return result;
+  bool ok = true;
+  ok &= expect_invalid_slot("GetLocalLong",   jvmti->GetLocalLong(thread, Depth, OverflowSlot, &lval));
+  ok &= expect_invalid_slot("GetLocalDouble", jvmti->GetLocalDouble(thread, Depth, OverflowSlot, &dval));
+  ok &= expect_invalid_slot("SetLocalLong",   jvmti->SetLocalLong(thread, Depth, OverflowSlot, (jlong)0));
+  ok &= expect_invalid_slot("SetLocalDouble", jvmti->SetLocalDouble(thread, Depth, OverflowSlot, (jdouble)0));
+  return ok ? JNI_TRUE : JNI_FALSE;
 }
 
 static jint Agent_Initialize(JavaVM *jvm, char *options, void *reserved) {
