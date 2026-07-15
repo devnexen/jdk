@@ -50,31 +50,22 @@
  */
 
 public class GetSetLocalSlotOverflow {
-    private static final String agentLib = "GetSetLocalSlotOverflow";
 
     // Invoked from runner(); the agent inspects the runner() frame at depth 1.
     // Returns false if any accessor did not return JVMTI_ERROR_INVALID_SLOT.
     static native boolean testOverflow(Thread thread);
 
     public static void main(String[] args) throws Exception {
-        try {
-            System.loadLibrary(agentLib);
-        } catch (UnsatisfiedLinkError ex) {
-            System.err.println("Failed to load " + agentLib + " lib");
-            System.err.println("java.library.path: " + System.getProperty("java.library.path"));
-            throw ex;
-        }
         if (!runner()) {
             throw new RuntimeException("Test GetSetLocalSlotOverflow failed");
         }
     }
 
-    // A non-native, non-static-receiver frame holding a few locals. The agent
-    // targets this frame (depth 1) with slot == INT_MAX. The actual local
-    // contents are irrelevant: the overflow happens in the slot bounds check,
-    // before any local is read.
+    // A Java frame holding a few locals. The agent targets this frame (depth 1)
+    // with slot == INT_MAX. The actual local contents are irrelevant: the
+    // overflow happens in the slot bounds check, before any local is read.
     public static boolean runner() {
-        long  l = 0xCAFEBABEL;
+        long l = 0xCAFEBABEL;
         double d = 3.14d;
         boolean ok = testOverflow(Thread.currentThread());
         // Keep locals live across the native call.

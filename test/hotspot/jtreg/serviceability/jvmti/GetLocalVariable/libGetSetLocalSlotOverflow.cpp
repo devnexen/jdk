@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include "jvmti.h"
+#include "jvmti_common.hpp"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,10 +42,10 @@ static jvmtiEnv *jvmti = nullptr;
 // locals->at(INT_MAX) access crashes the VM before we ever see a return code.
 static bool expect_invalid_slot(const char* what, jvmtiError err) {
   if (err == JVMTI_ERROR_INVALID_SLOT) {
-    printf(" PASS: %s returned JVMTI_ERROR_INVALID_SLOT (%d) for slot=INT_MAX\n", what, err);
+    LOG(" PASS: %s returned JVMTI_ERROR_INVALID_SLOT (%d) for slot=INT_MAX\n", what, err);
     return true;
   }
-  printf(" FAIL: %s returned %d for slot=INT_MAX, expected JVMTI_ERROR_INVALID_SLOT (%d)\n",
+  LOG(" FAIL: %s returned %d for slot=INT_MAX, expected JVMTI_ERROR_INVALID_SLOT (%d)\n",
          what, err, JVMTI_ERROR_INVALID_SLOT);
   return false;
 }
@@ -52,7 +53,7 @@ static bool expect_invalid_slot(const char* what, jvmtiError err) {
 JNIEXPORT jboolean JNICALL
 Java_GetSetLocalSlotOverflow_testOverflow(JNIEnv *env, jclass cls, jobject thread) {
   if (jvmti == nullptr) {
-    printf("JVMTI client was not properly loaded!\n");
+    LOG("JVMTI client was not properly loaded!\n");
     return JNI_FALSE;
   }
 
@@ -75,23 +76,23 @@ static jint Agent_Initialize(JavaVM *jvm, char *options, void *reserved) {
 
   res = jvm->GetEnv((void **) &jvmti, JVMTI_VERSION_9);
   if (res != JNI_OK || jvmti == nullptr) {
-    printf("Wrong result of a valid call to GetEnv!\n");
+    LOG("Wrong result of a valid call to GetEnv!\n");
     return JNI_ERR;
   }
   caps.can_access_local_variables = 1;
 
   err = jvmti->AddCapabilities(&caps);
   if (err != JVMTI_ERROR_NONE) {
-    printf("AddCapabilities: unexpected error: %d\n", err);
+    LOG("AddCapabilities: unexpected error: %d\n", err);
     return JNI_ERR;
   }
   err = jvmti->GetCapabilities(&caps);
   if (err != JVMTI_ERROR_NONE) {
-    printf("GetCapabilities: unexpected error: %d\n", err);
+    LOG("GetCapabilities: unexpected error: %d\n", err);
     return JNI_ERR;
   }
   if (!caps.can_access_local_variables) {
-    printf("Warning: Access to local variables is not implemented\n");
+    LOG("Warning: Access to local variables is not implemented\n");
     return JNI_ERR;
   }
   return JNI_OK;
