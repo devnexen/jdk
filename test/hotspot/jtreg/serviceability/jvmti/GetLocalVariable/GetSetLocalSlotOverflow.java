@@ -41,8 +41,10 @@
  * sub-expression _index + extra_slot overflows to INT_MIN, which is < max_locals(),
  * so the guard passes and the code goes on to index locals->at(INT_MAX).
  *
- * Expected (fixed) behavior: GetLocalLong/Double and SetLocalLong/Double with
- * slot == INT_MAX return JVMTI_ERROR_INVALID_SLOT.
+ * Expected (fixed) behavior: GetLocalLong/Double with slot == INT_MAX return
+ * JVMTI_ERROR_INVALID_SLOT. SetLocalLong/Double return JVMTI_ERROR_INVALID_SLOT
+ * on a platform thread, but JVMTI_ERROR_OPAQUE_FRAME on a mounted virtual thread
+ * (the continuation frame is rejected before the slot check is reached).
  *
  * On an unfixed VM this test does not merely fail: the out-of-bounds access
  * crashes the VM (assertion failure in fastdebug, SIGSEGV / silent corruption
@@ -52,8 +54,10 @@
 public class GetSetLocalSlotOverflow {
 
     // Invoked from runner(); the agent inspects the runner() frame at depth 1.
-    // Returns false if any accessor did not return JVMTI_ERROR_INVALID_SLOT.
-    static native boolean testOverflow(Thread thread);
+    // On a virtual thread SetLocal is rejected with OPAQUE_FRAME before the slot
+    // check, so the native side needs to know whether the thread is virtual.
+    // Returns false if any accessor did not return the expected error.
+    static native boolean testOverflow(Thread thread, boolean isVirtual);
 
     public static void main(String[] args) throws Exception {
         if (!runner()) {
@@ -67,7 +71,8 @@ public class GetSetLocalSlotOverflow {
     public static boolean runner() {
         long l = 0xCAFEBABEL;
         double d = 3.14d;
-        boolean ok = testOverflow(Thread.currentThread());
+        Thread self = Thread.currentThread();
+        boolean ok = testOverflow(self, self.isVirtual());
         // Keep locals live across the native call.
         if (l == 0 && d == 0) {
             throw new AssertionError("unreachable");
