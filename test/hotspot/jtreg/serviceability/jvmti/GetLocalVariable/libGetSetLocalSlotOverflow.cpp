@@ -65,9 +65,9 @@ Java_GetSetLocalSlotOverflow_testOverflow(JNIEnv *env, jclass cls, jobject threa
   ok &= expect_invalid_slot("GetLocalLong",   jvmti->GetLocalLong(thread, Depth, OverflowSlot, &lval));
   ok &= expect_invalid_slot("GetLocalDouble", jvmti->GetLocalDouble(thread, Depth, OverflowSlot, &dval));
 
-  // On a mounted virtual thread the runner() frame is in a continuation, so
-  // SetLocal at depth != 0 is rejected with JVMTI_ERROR_OPAQUE_FRAME before the
-  // slot check runs -- it never exercises the overflow, so skip it there.
+  // JVMTI only supports SetLocal on the topmost frame of a virtual thread. The
+  // runner() frame is not topmost, so on a virtual thread SetLocal is rejected
+  // before the slot check runs and cannot exercise the overflow -- skip it there.
   if (!isVirtual) {
     ok &= expect_invalid_slot("SetLocalLong",   jvmti->SetLocalLong(thread, Depth, OverflowSlot, (jlong)0));
     ok &= expect_invalid_slot("SetLocalDouble", jvmti->SetLocalDouble(thread, Depth, OverflowSlot, (jdouble)0));
